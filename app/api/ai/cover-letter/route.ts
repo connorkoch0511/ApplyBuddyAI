@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest } from 'next/server'
 import { chatStream } from '@/lib/openrouter'
 import { getServerSession } from 'next-auth'
