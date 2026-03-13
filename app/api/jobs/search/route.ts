@@ -51,14 +51,27 @@ export async function GET(req: NextRequest) {
   if (location && location !== 'all') params.set('where', location)
 
   try {
-    const res = await fetch(
-      `https://api.adzuna.com/v1/api/jobs/us/search/${page}?${params}`,
-      { next: { revalidate: 300 } } // cache for 5 minutes
+    // Fetch multiple pages in parallel to get more results
+    const pagesToFetch = page === '1' ? [1, 2, 3] : [parseInt(page)]
+    const responses = await Promise.all(
+      pagesToFetch.map(p =>
+        fetch(`https://api.adzuna.com/v1/api/jobs/us/search/${p}?${params}`, { next: { revalidate: 300 } })
+      )
     )
 
-    if (!res.ok) throw new Error(`Adzuna error: ${res.status}`)
+    const dataArr = await Promise.all(responses.map(r => r.ok ? r.json() : { results: [] }))
+    const allResults = dataArr.flatMap(d => d.results ?? [])
+    const total = dataArr[0]?.count ?? allResults.length
 
-    const data = await res.json()
+    // Deduplicate by id
+    const seen = new Set<string>()
+    const unique = allResults.filter((job: any) => {
+      if (seen.has(job.id)) return false
+      seen.add(job.id)
+      return true
+    })
+
+    const data = { results: unique, count: total }
 
     const jobs = (data.results ?? []).map((job: any) => ({
       id: job.id,
@@ -77,7 +90,7 @@ export async function GET(req: NextRequest) {
       logoColor: logoColor(job.company?.display_name ?? ''),
     }))
 
-    return NextResponse.json({ jobs, total: data.count ?? jobs.length })
+    return NextResponse.json({ jobs, total })
   } catch (error) {
     console.error('Adzuna API error:', error)
     return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 })
