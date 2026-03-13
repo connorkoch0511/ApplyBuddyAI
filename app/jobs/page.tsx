@@ -50,14 +50,18 @@ export default function JobsPage() {
     fetchJobs()
   }, [])
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (q = searchQuery, loc = locationFilter) => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/jobs/search')
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      if (loc && loc !== 'all') params.set('location', loc)
+      const res = await fetch(`/api/jobs/search?${params}`)
       if (res.ok) {
         const data = await res.json()
-        setJobs(data)
-        setFilteredJobs(data)
+        const list = Array.isArray(data) ? data : (data.jobs ?? [])
+        setJobs(list)
+        setFilteredJobs(list)
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
@@ -173,12 +177,19 @@ export default function JobsPage() {
                 placeholder="Search by title, company, or skill..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchJobs()}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-violet-500 placeholder-gray-500"
               />
             </div>
+            <button
+              onClick={() => fetchJobs()}
+              className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              Search
+            </button>
             <select
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
+              onChange={(e) => { setLocationFilter(e.target.value); fetchJobs(searchQuery, e.target.value) }}
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500 text-gray-300"
             >
               <option value="all">All Locations</option>
