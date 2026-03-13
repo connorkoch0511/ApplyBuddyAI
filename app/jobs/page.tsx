@@ -45,6 +45,9 @@ export default function JobsPage() {
   const [applyJob, setApplyJob] = useState<Job | null>(null)
   const [applySuccess, setApplySuccess] = useState(false)
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   useEffect(() => {
     fetchJobs()
@@ -52,8 +55,9 @@ export default function JobsPage() {
 
   const fetchJobs = async (q = searchQuery, loc = locationFilter) => {
     setIsLoading(true)
+    setPage(1)
     try {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ page: '1' })
       if (q) params.set('q', q)
       if (loc && loc !== 'all') params.set('location', loc)
       const res = await fetch(`/api/jobs/search?${params}`)
@@ -62,11 +66,35 @@ export default function JobsPage() {
         const list = Array.isArray(data) ? data : (data.jobs ?? [])
         setJobs(list)
         setFilteredJobs(list)
+        setHasMore(list.length === 50)
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadMore = async () => {
+    setIsLoadingMore(true)
+    const nextPage = page + 1
+    try {
+      const params = new URLSearchParams({ page: String(nextPage) })
+      if (searchQuery) params.set('q', searchQuery)
+      if (locationFilter && locationFilter !== 'all') params.set('location', locationFilter)
+      const res = await fetch(`/api/jobs/search?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        const newJobs = Array.isArray(data) ? data : (data.jobs ?? [])
+        setJobs(prev => [...prev, ...newJobs])
+        setFilteredJobs(prev => [...prev, ...newJobs])
+        setPage(nextPage)
+        setHasMore(newJobs.length === 50)
+      }
+    } catch (error) {
+      console.error('Error loading more jobs:', error)
+    } finally {
+      setIsLoadingMore(false)
     }
   }
 
@@ -318,6 +346,24 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {/* Load More */}
+      {!isLoading && hasMore && filteredJobs.length > 0 && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {isLoadingMore ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Loading...
+              </span>
+            ) : 'Load More Jobs'}
+          </button>
+        </div>
+      )}
 
       {/* Job Detail Slide-over */}
       {selectedJob && (

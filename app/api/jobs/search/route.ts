@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   const params = new URLSearchParams({
     app_id: process.env.ADZUNA_APP_ID!,
     app_key: process.env.ADZUNA_APP_KEY!,
-    results_per_page: '20',
+    results_per_page: '50',
     what: query,
     'content-type': 'application/json',
   })
